@@ -24,3 +24,4 @@ safetensors
 Flask
 celery
 redis
+cffi
