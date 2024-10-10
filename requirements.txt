@@ -11,11 +11,15 @@ kornia==0.6.8
 tqdm
 yacs==0.1.8
 pyyaml  
-joblib==1.1.0
+joblib==1.2.0
 scikit-image==0.19.3
 basicsr==1.4.2
 facexlib==0.3.0
-gradio
+#gradio
 gfpgan
 av
 safetensors
+
+Flask
+celery
+redis
