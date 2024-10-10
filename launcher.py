@@ -194,7 +194,7 @@ def prepare_environment():
 
 def start():
     print(f"Launching SadTalker Web UI")
-    from app import sadtalker_demo
+    from gradio_app import sadtalker_demo
     demo = sadtalker_demo()
     demo.queue()
     demo.launch()
