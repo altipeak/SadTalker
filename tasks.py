@@ -1,3 +1,5 @@
+import subprocess
+
 from celery import Celery
 from glob import glob
 import shutil
@@ -21,45 +23,51 @@ logger = logging.getLogger(__name__)
 
 celery_app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
 
-# defaults.py
+@celery_app.task
+def generate_video(**args_dict):
+    """
+    Task to generate video by running the inference.py script via subprocess.
 
-DEFAULT_ARGS = {
-    "driven_audio": './examples/driven_audio/bus_chinese.wav',
-    "source_image": './examples/source_image/full_body_1.png',
-    "ref_eyeblink": None,
-    "ref_pose": None,
-    "checkpoint_dir": './checkpoints',
-    "result_dir": './results',
-    "pose_style": 0,
-    "batch_size": 2,
-    "size": 256,
-    "expression_scale": 1.0,
-    "input_yaw": None,
-    "input_pitch": None,
-    "input_roll": None,
-    "enhancer": None,
-    "background_enhancer": None,
-    "cpu": False,
-    "face3dvis": False,
-    "still": False,
-    "preprocess": 'crop',
-    "verbose": False,
-    "old_version": False,
-    "net_recon": 'resnet50',
-    "init_path": None,
-    "use_last_fc": False,
-    "bfm_folder": './checkpoints/BFM_Fitting/',
-    "bfm_model": 'BFM_model_front.mat',
-    "focal": 1015.0,
-    "center": 112.0,
-    "camera_d": 10.0,
-    "z_near": 5.0,
-    "z_far": 15.0,
-}
+    Args:
+        args_dict (dict): Dictionary of arguments to pass to inference.py.
+
+    Returns:
+        str: Output or error message from the subprocess.
+    """
+    try:
+        args = Namespace(**args_dict)
+
+        # Construct the command with arguments
+        command = ['python', 'inference.py']
+
+        # Add all arguments to the command
+        for key, value in vars(args).items():
+            if value is not None:  # Skip None values
+                command.append(f'--{key}')
+                if isinstance(value, list):
+                    command.extend(value)  # If the argument is a list, extend the command
+                else:
+                    command.append(str(value))  # Convert the value to string
+
+        # Run the subprocess command
+        logger.info(command)
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+
+        # Check for successful execution
+        if result.returncode == 0:
+            return f"Video generated successfully! Output: {result.stdout}"
+        else:
+            return f"Failed to generate video. Error: {result.stderr}"
+
+    except subprocess.CalledProcessError as e:
+        return f"Subprocess error: {e.stderr}"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
+
 
 
 @celery_app.task
-def generate_video(args_dict):
+def _generate_video(args_dict):
     args_dict = {**DEFAULT_ARGS, **args_dict}
     args = Namespace(**args_dict)
 
@@ -83,7 +91,8 @@ def generate_video(args_dict):
     save_dir = os.path.join(args.result_dir, strftime("%Y_%m_%d_%H.%M.%S"))
     os.makedirs(save_dir, exist_ok=True)
 
-    current_root_path = os.path.split(sys.argv[0])[0]
+
+    current_root_path = os.path.dirname(os.path.abspath(__file__))
     sadtalker_paths = init_path(args.checkpoint_dir, os.path.join(current_root_path, 'src/config'),
                                 args.size, args.old_version, args.preprocess)
 

@@ -31,28 +31,14 @@ def generate_video_endpoint():
     args = {
         'source_image': image_path,
         'driven_audio': audio_path,
-        'checkpoint_dir': './checkpoints',  # Adjust based on your structure
-        'result_dir': './results',  # Adjust based on your structure
         'pose_style': 0,  # Default value, can modify based on your needs
         'batch_size': 2,  # Default value
-        'size': 256,  # Default value
         'expression_scale': 1.0,  # Default value
-        'input_yaw': None,  # Modify as needed
-        'input_pitch': None,  # Modify as needed
-        'input_roll': None,  # Modify as needed
-        'ref_eyeblink': None,  # Modify as needed
-        'ref_pose': None,  # Modify as needed
-        'still': False,  # Default value
-        'face3dvis': False,  # Default value
-        'enhancer': None,  # Modify as needed
-        'background_enhancer': None,  # Modify as needed
-        'verbose': False,  # Default value
-        'old_version': False,  # Default value
         'preprocess': 'crop'  # Default value, adjust as necessary
     }
 
     # Call the Celery task to generate the video
-    task = generate_video.apply_async(args=[args])
+    task = generate_video.apply_async(kwargs=args)
 
     return jsonify({"task_id": task.id}), 202  # Return the task ID for tracking
 
