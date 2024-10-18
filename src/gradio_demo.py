@@ -1,7 +1,7 @@
 import torch, uuid
 import os, sys, shutil
 from src.utils.preprocess import CropAndExtract
-from src.test_audio2coeff import Audio2Coeff  
+from src.test_audio2coeff import Audio2Coeff
 from src.facerender.animate import AnimateFromCoeff
 from src.generate_batch import get_data
 from src.generate_facerender_batch import get_facerender_data
@@ -22,6 +22,8 @@ class SadTalker():
 
         if torch.cuda.is_available():
             device = "cuda"
+        #elif torch.backends.mps.is_available():
+        #    device = "mps"
         else:
             device = "cpu"
         

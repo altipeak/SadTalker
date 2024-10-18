@@ -1,11 +1,41 @@
+from celery import Celery
 from flask import Flask, request, jsonify
 from tasks import generate_video
 from celery.result import AsyncResult
 import os
 
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 app = Flask(__name__)
+
+# Configure Celery with Redis as the broker
+#REDIS_URI = 'redis://default:redispw@localhost:32768/0'
+REDIS_URI = 'redis://localhost:6379/0'
+app.config['CELERY_BROKER_URL'] = REDIS_URI
+app.config['CELERY_RESULT_BACKEND'] = REDIS_URI
+
+
+from celery import Celery, Task
+
+def celery_init_app(app: Flask) -> Celery:
+    class FlaskTask(Task):
+        def __call__(self, *args: object, **kwargs: object) -> object:
+            with app.app_context():
+                return self.run(*args, **kwargs)
+
+    celery_app = Celery(app.name, task_cls=FlaskTask)
+    celery_app.config_from_object(app.config["CELERY"])
+    celery_app.set_default()
+    app.extensions["celery"] = celery_app
+    return celery_app
+
+app.config.from_mapping(
+    CELERY=dict(
+        broker_url=REDIS_URI,
+        result_backend=REDIS_URI,
+        task_ignore_result=True,
+    ),
+)
+celery_app = celery_init_app(app)
 
 @app.route('/')
 def home():
@@ -69,4 +99,4 @@ def get_task_status(task_id):
 
 if __name__ == '__main__':
     os.makedirs('uploads', exist_ok=True)  # Ensure the upload directory exists
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)

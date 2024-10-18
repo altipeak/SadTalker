@@ -1,7 +1,7 @@
 from glob import glob
 import shutil
 import torch
-from time import  strftime
+from time import strftime
 import os, sys, time
 from argparse import ArgumentParser
 
@@ -27,6 +27,7 @@ def main(args):
     input_roll_list = args.input_roll
     ref_eyeblink = args.ref_eyeblink
     ref_pose = args.ref_pose
+    task_id = args.task_id
 
     current_root_path = os.path.split(sys.argv[0])[0]
 
@@ -87,8 +88,8 @@ def main(args):
     result = animate_from_coeff.generate(data, save_dir, pic_path, crop_info, \
                                 enhancer=args.enhancer, background_enhancer=args.background_enhancer, preprocess=args.preprocess, img_size=args.size)
     
-    shutil.move(result, save_dir+'.mp4')
-    print('The generated video is named:', save_dir+'.mp4')
+    shutil.move(result, task_id + '.mp4')
+    print('The generated video is named:', task_id+'.mp4')
 
     if not args.verbose:
         shutil.rmtree(save_dir)
@@ -133,11 +134,17 @@ if __name__ == '__main__':
     parser.add_argument('--camera_d', type=float, default=10.)
     parser.add_argument('--z_near', type=float, default=5.)
     parser.add_argument('--z_far', type=float, default=15.)
+    parser.add_argument('--task_id', type=str, help='Celery task ID for logging or tracking')
+
 
     args = parser.parse_args()
 
     if torch.cuda.is_available() and not args.cpu:
         args.device = "cuda"
+    #elif torch.backends.mps.is_available() and not args.cpu:
+    #    args.device = "mps"
+    #elif torch.backends.openmp.is_available() and not args.cpu:
+    #    args.device = "openmp"
     else:
         args.device = "cpu"
 

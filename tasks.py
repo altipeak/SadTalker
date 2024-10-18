@@ -21,10 +21,12 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-celery_app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
+REDIS_URI = 'redis://default:redispw@localhost:32768/0'
+#REDIS_URI = 'redis://localhost:6379/0'
+celery_app = Celery('tasks', broker=REDIS_URI, backend=REDIS_URI)
 
-@celery_app.task
-def generate_video(**args_dict):
+@celery_app.task(bind=True)
+def generate_video(self, **args_dict):
     """
     Task to generate video by running the inference.py script via subprocess.
 
@@ -37,11 +39,16 @@ def generate_video(**args_dict):
     try:
         args = Namespace(**args_dict)
 
+        # Get the Celery task ID
+        task_id = self.request.id
+
         # Construct the command with arguments
         command = ['python', 'inference.py']
 
         # Add all arguments to the command
         for key, value in vars(args).items():
+            if value is True:
+                command.append(f'--{key}')
             if value is not None:  # Skip None values
                 command.append(f'--{key}')
                 if isinstance(value, list):
@@ -49,15 +56,19 @@ def generate_video(**args_dict):
                 else:
                     command.append(str(value))  # Convert the value to string
 
+        # Add the Celery task ID as an additional argument
+        command.append('--task_id')
+        command.append(task_id)
+
         # Run the subprocess command
         logger.info(command)
         result = subprocess.run(command, capture_output=True, text=True, check=True)
 
         # Check for successful execution
         if result.returncode == 0:
-            return f"Video generated successfully! Output: {result.stdout}"
+            logger.info(f"Video generated successfully! Output: {result.stdout}")
         else:
-            return f"Failed to generate video. Error: {result.stderr}"
+            logger.error(f"Failed to generate video. Error: {result.stderr}")
 
     except subprocess.CalledProcessError as e:
         return f"Subprocess error: {e.stderr}"
@@ -68,11 +79,17 @@ def generate_video(**args_dict):
 
 @celery_app.task
 def _generate_video(args_dict):
-    args_dict = {**DEFAULT_ARGS, **args_dict}
+    #args_dict = {**DEFAULT_ARGS, **args_dict}
     args = Namespace(**args_dict)
 
     # Set the device based on availability
-    args.device = "cuda" if torch.cuda.is_available() and not args.cpu else "cpu"
+
+    if torch.cuda.is_available():
+        args.device = "cuda"
+    #elif torch.backends.mps.is_available():
+    #    args.device = "mps"
+    else:
+        args.device = "cpu"
 
     # Log the parameters
     logger.info("Starting video generation with parameters:")
